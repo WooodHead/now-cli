@@ -7,6 +7,7 @@ import * as Errors from '../../util/errors'
 import { Now, Output } from '../../util/types'
 import type { HTTPChallengeInfo } from '../../util/types'
 import createCertForCns from '../../util/certs/create-cert-for-cns'
+import getCertRequestSettings from './get-cert-request-settings'
 
 async function createCertificateForAlias(output: Output, now: Now, alias: string, context: string, httpChallengeInfo?: HTTPChallengeInfo) {
   const { domain, subdomain } = psl.parse(alias)
@@ -56,28 +57,6 @@ async function createCertificateForAlias(output: Output, now: Now, alias: string
   cancelMessage()
   output.log(`Certificate for ${joinWords(cns)} (${cert.uid}) created ${certStamp()}`)
   return cert
-}
-
-function getCertRequestSettings(alias: string, domain: string, subdomain: string, httpChallengeInfo?: HTTPChallengeInfo) {
-  if (httpChallengeInfo) {
-    if (subdomain === null) {
-      if (httpChallengeInfo.canSolveForRootDomain) {
-        return { cns: [domain, `*.${domain}`], preferDNS: false }
-      } else {
-        return { cns: [alias], preferDNS: true }
-      }
-    } else {
-      if (httpChallengeInfo.canSolveForRootDomain) {
-        return { cns: [domain, `*.${domain}`], preferDNS: false }
-      } else if (httpChallengeInfo.canSolveForSubdomain) {
-        return { cns: [alias], preferDNS: false }
-      } else {
-        return { cns: [alias], preferDNS: true }
-      }
-    }
-  } else {
-    return { cns: [domain, `*.${domain}`], preferDNS: false }
-  }
 }
 
 export default createCertificateForAlias
