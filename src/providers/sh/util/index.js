@@ -183,7 +183,7 @@ module.exports = class Now extends EventEmitter {
         )
       )
 
-      const res = await this._fetch('/v4/now/deployments', {
+      const res = await this._fetch('/v5/now/deployments', {
         method: 'POST',
         body: {
           env,
@@ -220,6 +220,11 @@ module.exports = class Now extends EventEmitter {
         err.retryAfter = 'never'
 
         return bail(err)
+      }
+
+      // If the deployment domain is missing a cert, bail with the error
+      if (res.status === 400 && body.error && body.error.code === 'cert_missing') {
+        bail(await responseError(res, null, body))
       }
 
       if (
