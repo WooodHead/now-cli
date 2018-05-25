@@ -9,10 +9,10 @@ const loadPackageJSON = require('read-pkg')
 const { readFile } = require('fs-extra')
 const { parse: parseDockerfile } = require('docker-file-parser')
 const determineType = require('deployment-type')
+const nowSchema = require('@zeit/schemas/deployment/config')
 
 // Utilities
 const getLocalConfigPath = require('../../../config/local-path')
-const nowSchema = require('../../../schema/now-schema.json')
 
 module.exports = readMetaData
 
@@ -124,7 +124,7 @@ async function readMetaData(
 
         // Unescape and convert into string
         try {
-          labels[key] = args[key]
+          labels[key] = args[key].replace(/^"(.+?)"$/g, '$1')
         } catch (err) {
           const e = new Error(
             `Error parsing value for LABEL ${key} in \`Dockerfile\``

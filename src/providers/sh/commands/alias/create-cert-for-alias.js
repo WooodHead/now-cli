@@ -51,7 +51,7 @@ async function createCertificateForAlias(output: Output, now: Now, alias: string
     // This is completely unexpected and should never happens
     if (cert instanceof Errors.CantGenerateWildcardCert) {
       throw cert
-    } 
+    }
   }
 
   cancelMessage()

@@ -8,10 +8,9 @@ const { parse: parseUrl } = require('url')
 // Packages
 const bytes = require('bytes')
 const chalk = require('chalk')
-const through2 = require('through2')
 const retry = require('async-retry')
 const { parse: parseIni } = require('ini')
-const { readFile, stat, lstat } = require('fs-extra')
+const { createReadStream, readFile, stat, lstat } = require('fs-extra')
 
 // Utilities
 const {
@@ -183,23 +182,29 @@ module.exports = class Now extends EventEmitter {
         )
       )
 
+      const requestBody = {
+        env,
+        public: wantsPublic || nowConfig.public,
+        forceNew,
+        name,
+        description,
+        deploymentType: type,
+        registryAuthToken: authToken,
+        files,
+        engines,
+        scale,
+        sessionAffinity,
+        limits: nowConfig.limits,
+        atlas
+      }
+
+      if (Object.keys(nowConfig).length > 0) {
+        requestBody.config = nowConfig
+      }
+
       const res = await this._fetch('/v5/now/deployments', {
         method: 'POST',
-        body: {
-          env,
-          public: wantsPublic || nowConfig.public,
-          forceNew,
-          name,
-          description,
-          deploymentType: type,
-          registryAuthToken: authToken,
-          files,
-          engines,
-          scale,
-          sessionAffinity,
-          limits: nowConfig.limits,
-          atlas
-        }
+        body: requestBody
       })
 
       // No retry on 4xx
@@ -327,11 +332,17 @@ module.exports = class Now extends EventEmitter {
         retry(
           async (bail) => {
             const file = this._files.get(sha)
+            const fPath = file.names[0];
+            const stream = createReadStream(fPath);
             const { data } = file
-            const stream = through2()
 
-            stream.write(data)
-            stream.end()
+            const fstreamRead = stream.read;
+
+            stream.read = (...args) => {
+              const chunk = fstreamRead.apply(stream, args)
+              chunk && this.emit('uploadProgress', chunk.length)
+              return chunk;
+            };
 
             const url = atlas ? '/v1/now/images' : '/v2/now/files'
             const additionalHeaders = atlas ? {
@@ -761,7 +772,7 @@ module.exports = class Now extends EventEmitter {
         return bail(await responseError(res, 'Failed to remove deployment'))
       } else {
         // If something is wrong with the server, we retry
-        throw await responseError(res, 'Failed to fetch domain')
+        throw await responseError(res, 'Failed to remove deployment')
       }
     })
 

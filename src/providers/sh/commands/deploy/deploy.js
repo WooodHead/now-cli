@@ -62,13 +62,18 @@ const mriOpts = {
     'debug',
     'force',
     'links',
-    'no-clipboard',
+    'C',
+    'clipboard',
     'forward-npm',
     'docker',
     'npm',
     'static',
     'public'
   ],
+  default: {
+    C: false,
+    clipboard: true,
+  },
   alias: {
     env: 'e',
     dotenv: 'E',
@@ -78,7 +83,6 @@ const mriOpts = {
     force: 'f',
     links: 'l',
     public: 'p',
-    'no-clipboard': 'C',
     'forward-npm': 'N',
     'session-affinity': 'S',
     name: 'n',
@@ -300,7 +304,7 @@ async function main(ctx: any) {
   deploymentName = argv.name
   sessionAffinity = argv['session-affinity']
   debugEnabled = argv.debug
-  clipboard = !argv['no-clipboard']
+  clipboard = argv.clipboard && !argv.C
   forwardNpm = argv['forward-npm']
   followSymlinks = !argv.links
   wantsPublic = argv.public
@@ -323,7 +327,7 @@ async function main(ctx: any) {
   const { token } = credentials.find(item => item.provider === 'sh')
   const contextName = getContextName(sh);
   const config = sh
-  
+
   alwaysForwardNpm = config.forwardNpm
 
   try {
@@ -505,7 +509,7 @@ async function sync({ contextName, output, token, config: { currentTeam, user },
     if (regions.length > 0 && getRegionsFromConfig(nowConfig).length > 0) {
       warn(`You have regions defined from both args and now.json, using ${chalk.bold(regions.join(','))}`)
     }
-    
+
     // If there are no regions from args, use config
     if (regions.length === 0) {
       regions = getRegionsFromConfig(nowConfig)
@@ -531,7 +535,7 @@ async function sync({ contextName, output, token, config: { currentTeam, user },
       }
 
       // Build the scale presets based on the given regions
-      scale = dcIds.reduce((result, dcId) => ({ ...result, [dcId]: {min: 0, max: 1}}), {})    
+      scale = dcIds.reduce((result, dcId) => ({ ...result, [dcId]: {min: 0, max: 1}}), {})
     }  else if (Object.keys(scaleFromConfig).length > 0) {
       // If we have no regions list we get it from the scale keys but we have to validate
       // them becase we don't admin `all` in this scenario. Also normalize presets in scale.
@@ -765,13 +769,13 @@ async function sync({ contextName, output, token, config: { currentTeam, user },
           now.upload({ atlas, scale })
 
           now.on('upload', ({ names, data }) => {
-            const amount = data.length
             debug(`Uploaded: ${names.join(' ')} (${bytes(data.length)})`)
-
-            bar.tick(amount)
           })
 
-          now.on('complete', () => resolve())
+
+          now.on('uploadProgress', bar.tick.bind(bar))
+
+          now.on('complete', resolve)
 
           now.on('error', err => {
             error('Upload failed')
@@ -915,7 +919,7 @@ async function sync({ contextName, output, token, config: { currentTeam, user },
         const instanceIndex = getInstanceIndex()
         const eventsStream = await getEventsStream(now, deployment.deploymentId, { direction: 'forward', follow: true })
         const eventsGenerator: AsyncGenerator<DeploymentEvent, void, void> = combineAsyncGenerators(
-          eventListenerToGenerator('data', eventsStream), 
+          eventListenerToGenerator('data', eventsStream),
           getStateChangeFromPolling(now, contextName, deployment.deploymentId, deployment.readyState)
         )
 
